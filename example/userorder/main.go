@@ -70,7 +70,7 @@ func userOrderItems(ctx context.Context, userId uint) (*models.Order, error) {
 		}
 	)
 
-	db.Transaction(gormqs.Tx(func(tx *gorm.DB) error {
+	err := db.Transaction(gormqs.Tx(func(tx *gorm.DB) error {
 		ctx := tx.Statement.Context
 
 		// get and lock user
