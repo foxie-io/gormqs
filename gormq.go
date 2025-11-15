@@ -90,8 +90,10 @@ func (qs *defaultQueries[M, Q]) CreateMany(ctx context.Context, records *[]*M) e
 
 func (qs *defaultQueries[M, Q]) GetOne(ctx context.Context, opts ...Option) (*M, error) {
 	var result M
-	err := qs.dbInstance(ctx, opts...).First(&result).Error
-	return &result, err
+	if err := qs.dbInstance(ctx, opts...).Model(&result).First(&result).Error; err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &result, nil
 }
 
 func (qs *defaultQueries[M, Q]) GetMany(ctx context.Context, opts ...Option) ([]*M, error) {

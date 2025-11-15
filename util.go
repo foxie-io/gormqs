@@ -20,14 +20,14 @@ func ContextWithValue(ctx context.Context, values ...any) context.Context {
 	return ctx
 }
 
-func ContextValue[T any](ctx context.Context) T {
+func ContextValue[T any](ctx context.Context, fallback T) T {
 	var (
 		zero T
 		key  = contextKey(fmt.Sprintf("%T", zero))
 	)
 	casted, ok := ctx.Value(key).(T)
 	if !ok {
-		return zero
+		return fallback
 	}
 
 	return casted
