@@ -29,16 +29,14 @@ func TxCtx(newCtx context.Context) TxHandler {
 }
 
 // easier to seperate logic into smaller functions
-func Tx(handlers ...TxHandler) func(*gorm.DB) error {
-	return func(tx *gorm.DB) error {
+func OpenTx(db *gorm.DB, handlers ...TxHandler) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		tx.Statement.Context = ContextWithValue(tx.Statement.Context, tx)
-
 		for _, handler := range handlers {
 			if err := handler(tx); err != nil {
 				return err
 			}
 		}
-
 		return nil
-	}
+	})
 }
