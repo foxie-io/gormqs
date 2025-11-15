@@ -5,7 +5,7 @@ go 1.25.2
 replace github.com/foxie-io/gormqs => ./../..
 
 require (
-	github.com/foxie-io/gormqs v0.1.4
+	github.com/foxie-io/gormqs v0.1.5
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )

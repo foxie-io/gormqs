@@ -70,7 +70,7 @@ func userOrderItems(ctx context.Context, userId uint) (*models.Order, error) {
 		}
 	)
 
-	err := gormqs.OpenTx(db, func(tx *gorm.DB) error {
+	db.Transaction(gormqs.Tx(func(tx *gorm.DB) error {
 		ctx := tx.Statement.Context
 
 		// get and lock user
@@ -102,7 +102,7 @@ func userOrderItems(ctx context.Context, userId uint) (*models.Order, error) {
 		}
 
 		return nil
-	})
+	}))
 
 	return order, err
 }
