@@ -37,7 +37,6 @@ func LockForUpdate(mode ...clause.Locking) gormqs.Option {
 		if len(mode) > 0 {
 			return db.Clauses(mode[0])
 		}
-
-		return db.Clauses(clause.Locking{})
+		return db.Clauses(clause.Locking{Strength: "UPDATE"})
 	}
 }

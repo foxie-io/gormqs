@@ -25,7 +25,7 @@ var (
 	db *gorm.DB
 	mu sync.Once
 
-	user_qs      *queries.UserQuerier
+	user_qs      *queries.UserQueries
 	item_qs      *queries.ItemQueries
 	order_qs     *queries.OrderQueries
 	orderItem_qs *queries.OrderItemQueries
@@ -33,7 +33,7 @@ var (
 
 func getDB() *gorm.DB {
 	mu.Do(func() {
-		_db, err := gorm.Open(sqlite.Open("userorder.db"), &gorm.Config{})
+		_db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -148,11 +148,12 @@ func main() {
 	mustNotErr(err)
 
 	// custom query
-	orderWithItem, err := order_qs.Querier().GetOneWithOrderItems(ctx, order.ID)
+	orderWithItem, err := order_qs.GetOneWithOrderItems(ctx, order.ID)
 	mustNotErr(err)
 
 	log.Println("orderWithItem:")
 	printJson(orderWithItem)
+
 }
 
 func printJson(v interface{}) {

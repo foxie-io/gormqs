@@ -10,25 +10,25 @@ import (
 
 var (
 	_ gormqs.Model   = (*models.User)(nil)
-	_ gormqs.Querier = (*UserQuerier)(nil)
+	_ gormqs.Querier = (*UserQueries)(nil)
 )
 
 type (
-	UserQuerier struct {
-		gormqs.Queries[models.User, *UserQuerier]
+	UserQueries struct {
+		gormqs.Queries[models.User, *UserQueries]
 		db    *gorm.DB
 		model models.User
 	}
 )
 
-func (qr UserQuerier) DBInstance(ctx context.Context) *gorm.DB {
-	// if ctx has db instance will use that if not use default
-	dbOrTx := gormqs.ContextValue(ctx, qr.db)
-	return dbOrTx.WithContext(ctx).Table(qr.model.TableName()).Model(qr.model)
+// provider db instance for gormqs.Queries to use
+func (qr UserQueries) DBInstance(ctx context.Context) *gorm.DB {
+	db := gormqs.ContextValue(ctx, qr.db)
+	return db.WithContext(ctx).Table(qr.model.TableName()).Model(qr.model)
 }
 
-func NewUserQueries(db *gorm.DB) *UserQuerier {
-	querier := &UserQuerier{db: db}
-	querier.Queries = gormqs.NewQueries[models.User](querier)
-	return querier
+func NewUserQueries(db *gorm.DB) *UserQueries {
+	qs := &UserQueries{db: db}
+	qs.Queries = gormqs.NewQueries[models.User](qs)
+	return qs
 }
