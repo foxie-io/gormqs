@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"example/userorder/models"
 	"example/userorder/queries"
@@ -56,22 +57,19 @@ func createUser(ctx context.Context, number uint) (*models.User, error) {
 	return user, nil
 }
 
-func userOrderItems(ctx context.Context, userId uint) (*models.Order, error) {
-	var (
-		order = &models.Order{
+func userOrderItemTransaction(userId uint, returnOrder *models.Order) gormqs.TxHandler {
+	return func(tx *gorm.DB) error {
+		ctx := tx.Statement.Context
+		order := &models.Order{
 			Discount: 0.5,
 			UserID:   userId,
 		}
 
-		items = []*models.Item{
+		items := []*models.Item{
 			{OrderID: order.ID, Product: "item-1", Quantity: 1, Price: 10.50},
 			{OrderID: order.ID, Product: "item-2", Quantity: 1, Price: 10.50},
 			{OrderID: order.ID, Product: "item-3", Quantity: 1, Price: 10.50},
 		}
-	)
-
-	err := db.Transaction(gormqs.Tx(func(tx *gorm.DB) error {
-		ctx := tx.Statement.Context
 
 		// get and lock user
 		user, err := userQueries.GetOne(ctx, qsopt.LockForUpdate(), qsopt.WhereID(userId))
@@ -101,10 +99,9 @@ func userOrderItems(ctx context.Context, userId uint) (*models.Order, error) {
 			return err
 		}
 
+		*returnOrder = *order
 		return nil
-	}))
-
-	return order, err
+	}
 }
 
 func main() {
@@ -116,7 +113,16 @@ func main() {
 	user1, err := createUser(ctx, 1)
 	mustNotErr(err)
 
-	order, err := userOrderItems(ctx, user1.ID)
+	var order models.Order
+
+	err = db.Transaction(
+		gormqs.Tx(
+			userOrderItemTransaction(user1.ID, &order),
+			// tx2,
+			// ...
+		),
+		&sql.TxOptions{Isolation: sql.LevelDefault},
+	)
 	mustNotErr(err)
 
 	// custom query
