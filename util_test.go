@@ -3,7 +3,7 @@ package gormqs_test
 import (
 	"testing"
 
-	"github.com/foxie.io/gormqs"
+	"github.com/foxie-io/gormqs"
 )
 
 func TestSafeTextForSql(t *testing.T) {
