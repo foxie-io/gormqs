@@ -70,9 +70,8 @@ func userOrderItems(ctx context.Context, userId uint) (*models.Order, error) {
 		}
 	)
 
-	err := getDB().Transaction(func(tx *gorm.DB) error {
-		// make queries use the transaction instance for rollback
-		ctx := gormqs.ContextWithValue(ctx, tx)
+	err := gormqs.OpenTx(db, func(tx *gorm.DB) error {
+		ctx := tx.Statement.Context
 
 		// get and lock user
 		user, err := userQueries.GetOne(ctx, qsopt.LockForUpdate(), qsopt.WhereID(userId))
