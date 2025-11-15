@@ -6,6 +6,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// commond usage
+
 func Limit(limit int) gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Limit(limit)
@@ -36,6 +38,6 @@ func LockForUpdate(mode ...clause.Locking) gormqs.Option {
 			return db.Clauses(mode[0])
 		}
 
-		return db.Clauses(clause.Locking{Strength: "PENDING"})
+		return db.Clauses(clause.Locking{})
 	}
 }

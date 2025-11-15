@@ -10,9 +10,11 @@ import (
 type UserColumn string
 
 const (
-	UserID       UserColumn = "id"
-	UserUsername UserColumn = "username"
-	UserBalance  UserColumn = "balance"
+	UserID        UserColumn = "id"
+	UserCreatedAt UserColumn = "created_at"
+	UserUpdatedAt UserColumn = "updated_at"
+	UserUsername  UserColumn = "username"
+	UserBalance   UserColumn = "balance"
 )
 
 func UserWhere(col UserColumn, operation, value any) gormqs.Option {

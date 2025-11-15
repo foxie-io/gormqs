@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"example/userorder/models"
 	"example/userorder/queries"
@@ -26,9 +25,10 @@ var (
 	db *gorm.DB
 	mu sync.Once
 
-	userQueries  queries.UserQueries
-	itemQueries  queries.ItemQueries
-	orderQueries queries.OrderQueries
+	user_qs      *queries.UserQuerier
+	item_qs      *queries.ItemQueries
+	order_qs     *queries.OrderQueries
+	orderItem_qs *queries.OrderItemQueries
 )
 
 func getDB() *gorm.DB {
@@ -39,9 +39,10 @@ func getDB() *gorm.DB {
 		}
 		db = _db.Debug()
 
-		userQueries = queries.NewUserQueries(db)
-		itemQueries = queries.NewItemQueries(db)
-		orderQueries = queries.NewOrderQueries(db)
+		user_qs = queries.NewUserQueries(db)
+		item_qs = queries.NewItemQueries(db)
+		order_qs = queries.NewOrderQuerier(db)
+		orderItem_qs = queries.NewOrderItemQueries(db)
 	})
 	return db
 }
@@ -51,51 +52,67 @@ func createUser(ctx context.Context, number uint) (*models.User, error) {
 		Username: fmt.Sprintf("user-%d", number),
 		Balance:  1000 * float64(number),
 	}
-	if err := userQueries.CreateOne(ctx, user); err != nil {
+	if err := user_qs.CreateOne(ctx, user); err != nil {
 		return nil, err
 	}
 	return user, nil
 }
 
-func userOrderItemTransaction(userId uint, returnOrder *models.Order) gormqs.TxHandler {
-	return func(tx *gorm.DB) error {
-		ctx := tx.Statement.Context
-		order := &models.Order{
-			Discount: 0.5,
-			UserID:   userId,
-		}
+func createItems(ctx context.Context) ([]*models.Item, error) {
+	items := []*models.Item{
+		{Product: "item-1", Quantity: 1, Price: 10.50},
+		{Product: "item-2", Quantity: 1, Price: 10.50},
+		{Product: "item-3", Quantity: 1, Price: 10.50},
+	}
 
-		items := []*models.Item{
-			{OrderID: order.ID, Product: "item-1", Quantity: 1, Price: 10.50},
-			{OrderID: order.ID, Product: "item-2", Quantity: 1, Price: 10.50},
-			{OrderID: order.ID, Product: "item-3", Quantity: 1, Price: 10.50},
+	if err := item_qs.CreateMany(ctx, &items); err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
+func userOrderItemTransaction(userId uint, orderItems []*models.OrderItem, returnOrder *models.Order) func(*gorm.DB) error {
+	return func(tx *gorm.DB) error {
+		// context will carry transaction instance
+		ctx := gormqs.ContextWithValue(tx.Statement.Context, tx)
+		tx.Statement.Context = ctx
+
+		order := &models.Order{
+			UserID: userId,
 		}
 
 		// get and lock user
-		user, err := userQueries.GetOne(ctx, qsopt.LockForUpdate(), qsopt.WhereID(userId))
+		user, err := user_qs.GetOne(ctx, qsopt.LockForUpdate(), qsopt.WhereID(userId))
 		if err != nil {
 			return err
 		}
 
-		for _, item := range items {
-			item.OrderID = order.ID
-			order.Amount += item.Price * float64(item.Quantity)
-		}
-
-		// create items
-		if err := itemQueries.CreateMany(ctx, &items); err != nil {
-			return err
+		// perepare order
+		order.UserID = user.ID
+		for _, orderItem := range orderItems {
+			order.PayAmount += orderItem.PayAmount()
+			order.DiscountAmount += orderItem.DiscountAmount()
 		}
 
 		// create an order
-		order.UserID = user.ID
-		if err := orderQueries.CreateOne(ctx, order); err != nil {
+		if err := order_qs.CreateOne(ctx, order); err != nil {
+			return err
+		}
+
+		// perepare order item
+		for _, orderItem := range orderItems {
+			orderItem.OrderID = order.ID
+		}
+
+		// create order items
+		if err := orderItem_qs.CreateMany(ctx, &orderItems); err != nil {
 			return err
 		}
 
 		// deduct user balance
-		user.Balance -= (order.Amount * (1 - order.Discount))
-		if _, err := userQueries.Updates(ctx, user, qsopt.UserSelect(qsopt.UserBalance)); err != nil {
+		user.Balance -= order.PayAmount
+		if _, err := user_qs.Updates(ctx, user, qsopt.UserSelect(qsopt.UserBalance)); err != nil {
 			return err
 		}
 
@@ -107,26 +124,31 @@ func userOrderItemTransaction(userId uint, returnOrder *models.Order) gormqs.TxH
 func main() {
 	ctx := context.Background()
 	db := getDB()
-	err := db.AutoMigrate(&models.User{}, &models.Item{}, &models.Order{})
+	err := db.AutoMigrate(&models.User{}, &models.Item{}, &models.Order{}, &models.OrderItem{})
 	mustNotErr(err)
 
 	user1, err := createUser(ctx, 1)
 	mustNotErr(err)
 
-	var order models.Order
+	items, err := createItems(ctx)
+	mustNotErr(err)
 
-	err = db.Transaction(
-		gormqs.Tx(
-			userOrderItemTransaction(user1.ID, &order),
-			// tx2,
-			// ...
-		),
-		&sql.TxOptions{Isolation: sql.LevelDefault},
-	)
+	orderItems := make([]*models.OrderItem, len(items))
+	for i, item := range items {
+		orderItems[i] = &models.OrderItem{
+			ItemID:   item.ID,
+			Quantity: 1 + uint(i),
+			Price:    item.Price,
+			Discount: 0.1 * float64(i),
+		}
+	}
+
+	var order models.Order
+	err = db.Transaction(userOrderItemTransaction(user1.ID, orderItems, &order))
 	mustNotErr(err)
 
 	// custom query
-	orderWithItem, err := orderQueries.Querier().GetOneWithItems(ctx, order.ID)
+	orderWithItem, err := order_qs.Querier().GetOneWithOrderItems(ctx, order.ID)
 	mustNotErr(err)
 
 	log.Println("orderWithItem:")

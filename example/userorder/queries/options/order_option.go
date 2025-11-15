@@ -10,10 +10,12 @@ import (
 type OrderColumn string
 
 const (
-	OrderID       OrderColumn = "id"
-	OrderAmount   OrderColumn = "amount"
-	OrderDiscount OrderColumn = "discount"
-	OrderUserID   OrderColumn = "user_id"
+	OrderID        OrderColumn = "id"
+	OrderCreatedAt OrderColumn = "created_at"
+	OrderUpdatedAt OrderColumn = "updated_at"
+	OrderAmount    OrderColumn = "pay_amount"
+	OrderDiscount  OrderColumn = "discount"
+	OrderUserID    OrderColumn = "user_id"
 )
 
 func OrderWhere(col OrderColumn, operation, value any) gormqs.Option {
@@ -23,17 +25,18 @@ func OrderWhere(col OrderColumn, operation, value any) gormqs.Option {
 	}
 }
 
-func OrderJoinItems() gormqs.Option {
+func OrderPreloadOrderItems() gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
-		return db.Joins("Items")
+		return db.Preload("OrderItems")
 	}
 }
 
 func OrderSelect(cols ...OrderColumn) gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		for _, col := range cols {
-			db.Statement.Selects = append(db.Statement.Selects, gormqs.WithTable(string(col), db))
+			db.Select(gormqs.WithTable(string(col), db))
 		}
+
 		return db
 	}
 }

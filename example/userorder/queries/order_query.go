@@ -11,54 +11,41 @@ import (
 
 var (
 	_ gormqs.Model   = (*models.Order)(nil)
-	_ gormqs.Querier = (*OrderQuerier)(nil)
+	_ gormqs.Querier = (*OrderQueries)(nil)
 )
 
 type (
-	OrderQueries interface {
-		gormqs.Queries[models.Order, *OrderQuerier]
-	}
-
-	OrderQuerier struct {
-		queries gormqs.Queries[models.Order, *OrderQuerier]
-		db      *gorm.DB
-		model   models.Order
+	OrderQueries struct {
+		gormqs.Queries[models.Order, *OrderQueries]
+		db    *gorm.DB
+		model models.Order
 	}
 )
 
-func (qr *OrderQuerier) DBInstance(ctx context.Context) *gorm.DB {
-	db := gormqs.ContextValue(ctx, qr.db)
-	return db.WithContext(ctx).Table(qr.model.TableName()).Model(qr.model)
+func (qs *OrderQueries) DBInstance(ctx context.Context) *gorm.DB {
+	db := gormqs.ContextValue(ctx, qs.db)
+	return db.WithContext(ctx).Table(qs.model.TableName()).Model(qs.model)
 }
 
-func NewOrderQueries(db *gorm.DB) OrderQueries {
-	querier := &OrderQuerier{db: db}
-	querier.queries = gormqs.NewQueries[models.Order](querier)
-	return querier.queries
+func NewOrderQuerier(db *gorm.DB) *OrderQueries {
+	qs := &OrderQueries{db: db}
+	qs.Queries = gormqs.NewQueries[models.Order](qs)
+	return qs
 }
 
 /*
-	Add Custom Query
+	Add Custom Query to OrderQueries
 
-use gorm:
+alternative:
 
 	qr.DBInstance(ctx).
 		Where("id = ?", orderID).
-		Joins("Items").
+		Joins("OrderItems").
 		First(&order)
-
-	=
-
-use queries: for reusable options and type safe
-
-	qr.queries.GetOne(ctx,
-		qsopt.OrderWhere(qsopt.OrderID, " = ", orderID),
-		qsopt.OrderJoinItems(),
-	)
 */
-func (qr *OrderQuerier) GetOneWithItems(ctx context.Context, orderID uint) (*models.Order, error) {
-	return qr.queries.GetOne(ctx,
+func (qs *OrderQueries) GetOneWithOrderItems(ctx context.Context, orderID uint) (*models.Order, error) {
+	return qs.GetOne(ctx,
 		qsopt.OrderWhere(qsopt.OrderID, "=", orderID),
-		qsopt.OrderJoinItems(),
+		qsopt.OrderPreloadOrderItems(),
 	)
 }
