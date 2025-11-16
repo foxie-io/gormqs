@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"example/userorder/models"
 	"example/userorder/queries"
-	qsopt "example/userorder/queries/options"
 	"fmt"
 	"log"
 	"sync"
@@ -41,7 +40,7 @@ func getDB() *gorm.DB {
 
 		user_qs = queries.NewUserQueries(db)
 		item_qs = queries.NewItemQueries(db)
-		order_qs = queries.NewOrderQuerier(db)
+		order_qs = queries.NewOrderQueries(db)
 		orderItem_qs = queries.NewOrderItemQueries(db)
 	})
 	return db
@@ -72,53 +71,58 @@ func createItems(ctx context.Context) ([]*models.Item, error) {
 	return items, nil
 }
 
-func userOrderItemTransaction(userId uint, orderItems []*models.OrderItem, returnOrder *models.Order) func(*gorm.DB) error {
-	return func(tx *gorm.DB) error {
-		// context will carry transaction instance
+func createUserOrder(ctx context.Context, userId uint, orderItems []*models.OrderItem) (*models.Order, error) {
+	order := &models.Order{
+		UserID: userId,
+	}
+
+	for _, orderItem := range orderItems {
+		order.PayAmount += orderItem.PayAmount()
+		order.DiscountAmount += orderItem.DiscountAmount()
+	}
+
+	// tx1
+	user, err := user_qs.BlockBalance(ctx, userId, order.PayAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	// tx2
+	err = getDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		ctx := gormqs.ContextWithValue(tx.Statement.Context, tx)
-		tx.Statement.Context = ctx
-
-		order := &models.Order{
-			UserID: userId,
-		}
-
-		// get and lock user
-		user, err := user_qs.GetOne(ctx, qsopt.LockForUpdate(), qsopt.WhereID(userId))
-		if err != nil {
-			return err
-		}
-
-		// perepare order
-		order.UserID = user.ID
-		for _, orderItem := range orderItems {
-			order.PayAmount += orderItem.PayAmount()
-			order.DiscountAmount += orderItem.DiscountAmount()
-		}
 
 		// create an order
 		if err := order_qs.CreateOne(ctx, order); err != nil {
 			return err
 		}
 
-		// perepare order item
+		// create orderItems
 		for _, orderItem := range orderItems {
 			orderItem.OrderID = order.ID
 		}
 
-		// create order items
 		if err := orderItem_qs.CreateMany(ctx, &orderItems); err != nil {
 			return err
 		}
 
-		// deduct user balance
-		user.Balance -= order.PayAmount
-		if _, err := user_qs.Updates(ctx, user, qsopt.UserSelect(qsopt.UserBalance)); err != nil {
+		// commit blocked balance = success
+		_, err = user_qs.CommitBlockedBalance(ctx, user.ID, order.PayAmount)
+		if err != nil {
 			return err
 		}
 
-		*returnOrder = *order
 		return nil
+	})
+
+	if err != nil {
+		// tx 3
+		user, err = user_qs.UnblockBalance(ctx, userId, order.PayAmount)
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	return order, nil
 }
 
 func main() {
@@ -143,17 +147,15 @@ func main() {
 		}
 	}
 
-	var order models.Order
-	err = db.Transaction(userOrderItemTransaction(user1.ID, orderItems, &order))
+	order, err := createUserOrder(ctx, user1.ID, orderItems)
 	mustNotErr(err)
 
 	// custom query
-	orderWithItem, err := order_qs.GetOneWithOrderItems(ctx, order.ID)
+	orderWithDetails, err := order_qs.GetOneWithDetails(ctx, order.ID)
 	mustNotErr(err)
 
-	log.Println("orderWithItem:")
-	printJson(orderWithItem)
-
+	log.Println("order with details:")
+	printJson(orderWithDetails)
 }
 
 func printJson(v interface{}) {

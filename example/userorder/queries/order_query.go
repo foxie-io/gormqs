@@ -27,7 +27,7 @@ func (qs *OrderQueries) DBInstance(ctx context.Context) *gorm.DB {
 	return db.WithContext(ctx).Table(qs.model.TableName()).Model(qs.model)
 }
 
-func NewOrderQuerier(db *gorm.DB) *OrderQueries {
+func NewOrderQueries(db *gorm.DB) *OrderQueries {
 	qs := &OrderQueries{db: db}
 	qs.Queries = gormqs.NewQueries[models.Order](qs)
 	return qs
@@ -43,9 +43,10 @@ alternative:
 		Joins("OrderItems").
 		First(&order)
 */
-func (qs *OrderQueries) GetOneWithOrderItems(ctx context.Context, orderID uint) (*models.Order, error) {
+func (qs *OrderQueries) GetOneWithDetails(ctx context.Context, orderID uint) (*models.Order, error) {
 	return qs.GetOne(ctx,
-		qsopt.OrderWhere(qsopt.OrderID, "=", orderID),
-		qsopt.OrderPreloadOrderItems(),
+		qsopt.ORDER.Where(qsopt.ORDER.ID, "=", orderID),
+		qsopt.ORDER.PreloadOrderItems(),
+		qsopt.ORDER.PreloadUser(),
 	)
 }

@@ -1,34 +1,36 @@
 # gormqs
 
-Simple Gorm Queries prod
+Simple Gorm Queries Wrapper
 
 ## Features
 
-- Simple interface for gorm queries
-- Use default queries if not provide
-- Support custom queries
-- Support option for queries
+- simple interface for gorm queries with option
+- go context base
+- extendable option (strict type or dynamic is up to you)
 
 ## Queries
 
-```
+```go
 type Queries[M Model, Q any] interface {
-	Querier() Q
-
 	CreateOne(ctx context.Context, record *M) error
 	CreateMany(ctx context.Context, record *[]*M) error
 
 	GetOne(ctx context.Context, opts ...Option) (result *M, err error)
 	GetMany(ctx context.Context, opts ...Option) (result []*M, err error)
 
-	// update one or many is base on opt select
+	// update one or many is base on at least one opt
+
 	Updates(ctx context.Context, record *M, opt Option, opts ...Option) (affectedRow int64, err error)
 	Count(ctx context.Context, opt Option, opts ...Option) (count int64, err error)
 	Delete(ctx context.Context, opt Option, opts ...Option) (affectedRow int64, err error)
 
-	// scan pattern for custom type
+	// scan pattern for custom type without mapping to struct again
+
 	GetOneTo(ctx context.Context, result Model, opts ...Option) error
 	GetManyTo(ctx context.Context, resultList any, opts ...Option) error
+
+	// list with count | list ony | count ony with same option meaning same query filter
+	GetManyWithCount(ctx context.Context, r ManyWithCountResulter, options ...Option) error
 }
 ```
 
@@ -36,7 +38,7 @@ type Queries[M Model, Q any] interface {
 
 ### Declare Model
 
-```
+````go
 // models/user_model.go
 
 type User struct {
@@ -49,11 +51,11 @@ func (User) TableName() string {
 	return "users"
 }
 
-```
+```go
 
-### Declare UserQueries
+### UserQueries Implementation
 
-```
+```go
 // queries/user_query.go
 
 type (
@@ -65,8 +67,8 @@ type (
 )
 
 // provider db instance for gormqs.Queries to use
-func (qr UserQueries) DBInstance(ctx context.Context) *gorm.DB {
-	db := gormqs.ContextValue(ctx, qr.db)
+func (qr *UserQueries) DBInstance(ctx context.Context) *gorm.DB {
+	db := gormqs.ContextValue(ctx, qr.db) // use instance from context for transaction
 	return db.WithContext(ctx).Table(qr.model.TableName()).Model(qr.model)
 }
 
@@ -75,32 +77,15 @@ func NewUserQueries(db *gorm.DB) *UserQueries {
 	qs.Queries = gormqs.NewQueries[models.User](qs)
 	return qs
 }
-```
 
-### Declare Your common option
-
-```
-// queries/options/option.go
-
-func WhereID(id uint) gormqs.Option {
-	return func(db *gorm.DB) *gorm.DB {
-		return db.Where("id = ?", id)
-	}
+func (qr *UserQueries) UpdateUserByUsername(ctx context.Context, username string, newVal any) error {
+	// implement your own query
 }
-
-func LockForUpdate(mode ...clause.Locking) gormqs.Option {
-	return func(db *gorm.DB) *gorm.DB {
-		if len(mode) > 0 {
-			return db.Clauses(mode[0])
-		}
-		return db.Clauses(clause.Locking{Strength: "UPDATE"})
-	}
-}
-```
+````
 
 ### Declare your own option for type safe
 
-```
+```go
 // queries/options/user_option.go
 
 type UserColumn string
@@ -113,6 +98,7 @@ const (
 	UserBalance   UserColumn = "balance"
 )
 
+
 func UserWhere(col UserColumn, operation, value any) gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		query := fmt.Sprintf("%s %s ?", gormqs.WithTable(string(col), db), operation)
@@ -123,7 +109,8 @@ func UserWhere(col UserColumn, operation, value any) gormqs.Option {
 func UserSelect(cols ...UserColumn) gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		for _, col := range cols {
-			db.Statement.Selects = append(db.Statement.Selects, gormqs.WithTable(string(col), db))
+			col = gormqs.WithTable(string(col), db)
+			db.Select(col)
 		}
 		return db
 	}
@@ -133,23 +120,24 @@ func UserSelect(cols ...UserColumn) gormqs.Option {
 
 ### Usage with or without transaction
 
-```
+```go
 user_qs := queries.NewUserQueries(db)
-user1, err := user_qs.GetOne(ctx,  qsopt.WhereID(user1.ID))
+user1, _ := user_qs.GetOne(ctx,  qsopt.WhereID(user1.ID))
 
-err := db.Transaction(func(tx *gorm.DB) error {
-		ctx := gormqs.ContextWithValue(tx.Statement.Context, tx)
+db.Transaction(func(tx *gorm.DB) error {
+	ctx := gormqs.ContextWithValue(tx.Statement.Context, tx)
 
-		user, err := user_qs.GetOne(ctx, qsopt.LockForUpdate(), qsopt.WhereID(user1.ID))
-		if err != nil {
-			return err
-		}
+	user, err := user_qs.GetOne(ctx, qsopt.LockForUpdate(), qsopt.UserWhere(qsopt.UserID,"=",user1.ID)
+	if err != nil {
+		return err
+	}
 
-		user.Balance += 100
-		if _, err := user_qs.Updates(ctx, user, qsopt.UserSelect(qsopt.UserBalance)); err != nil {
-			return err
-		}
-		return nil
-	})
+	user.Balance += 100
+	if _, err := user_qs.Updates(ctx, user, qsopt.UserSelect(qsopt.UserBalance)); err != nil {
+		return err
+	}
+
+	return nil
+})
 
 ```

@@ -9,34 +9,52 @@ import (
 
 type OrderColumn string
 
-const (
-	OrderID        OrderColumn = "id"
-	OrderCreatedAt OrderColumn = "created_at"
-	OrderUpdatedAt OrderColumn = "updated_at"
-	OrderAmount    OrderColumn = "pay_amount"
-	OrderDiscount  OrderColumn = "discount"
-	OrderUserID    OrderColumn = "user_id"
-)
+type OrderSchema struct {
+	ID        OrderColumn
+	CreatedAt OrderColumn
+	UpdatedAt OrderColumn
+	Discount  OrderColumn
+	UserID    OrderColumn
+}
 
-func OrderWhere(col OrderColumn, operation, value any) gormqs.Option {
+var ORDER = OrderSchema{
+	ID:        "id",
+	CreatedAt: "created_at",
+	UpdatedAt: "updated_at",
+	Discount:  "discount",
+	UserID:    "user_id",
+}
+
+func (s OrderSchema) Where(col OrderColumn, operation, value any) gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		query := fmt.Sprintf("%s %s ?", gormqs.WithTable(string(col), db), operation)
 		return db.Where(query, value)
 	}
 }
 
-func OrderPreloadOrderItems() gormqs.Option {
+func (s OrderSchema) Select(cols ...OrderColumn) gormqs.Option {
+	return func(db *gorm.DB) *gorm.DB {
+		columns := make([]string, len(cols))
+		for i, col := range cols {
+			columns[i] = gormqs.WithTable(string(col), db)
+		}
+
+		return db.Select(columns)
+	}
+}
+
+func (s OrderSchema) WhereID(id uint) gormqs.Option {
+	return s.Where(s.ID, "=", id)
+}
+
+func (s OrderSchema) PreloadOrderItems() gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Preload("OrderItems")
 	}
 }
 
-func OrderSelect(cols ...OrderColumn) gormqs.Option {
+func (s OrderSchema) PreloadUser() gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
-		for _, col := range cols {
-			db.Select(gormqs.WithTable(string(col), db))
-		}
-
-		return db
+		return db.Preload("User")
 	}
 }
