@@ -50,7 +50,7 @@ func WithoutLimitAndOffset() Option {
 
 func LimitAndOffset(limit int, offset int) Option {
 	return func(q *gorm.DB) *gorm.DB {
-		return q.Offset(limit).Limit(offset)
+		return q.Limit(limit).Offset(offset)
 	}
 }
 

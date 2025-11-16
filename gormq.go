@@ -177,8 +177,25 @@ func (qs *queries[M, Q]) GetMany(ctx context.Context, opts ...Option) ([]*M, err
 	return result, err
 }
 
+/*
+Update
+
+	// after update return value will mutate user
+	var user models.User
+	user.money = 100
+	qs.Updates(ctx, &user)
+
+	// after update return value will mutate updatedUser
+	var (
+		userNewValue models.User
+		updatedUser models.User
+	)
+	user.money = 100
+	qs.Updates(ctx, &userNewValue, WithModel(&updatedUser) // after update return value update to user
+*/
 func (qs *queries[M, Q]) Updates(ctx context.Context, record *M, opt Option, opts ...Option) (affectedRow int64, err error) {
-	cmd := qs.dbInstance(ctx, opt, Options(opts...)).Model(record).Updates(record)
+	defaultOpt := Options(WithModel(record), opt)
+	cmd := qs.dbInstance(ctx, defaultOpt, Options(opts...)).Updates(record)
 	affectedRow, err = cmd.RowsAffected, cmd.Error
 	return
 }
@@ -203,15 +220,15 @@ func (qs *queries[M, Q]) GetManyTo(ctx context.Context, resultList any, opts ...
 }
 
 func (qs *queries[M, Q]) GetManyWithCount(ctx context.Context, r ManyWithCountResulter, opts ...Option) error {
-	var (
-		ListOnly     = r.QsList() != nil && r.QsCount() == nil
-		CountOnly    = r.QsList() == nil && r.QsCount() != nil
-		ListAndCount = r.QsList() != nil && r.QsCount() != nil
-	)
-
 	switch {
+	case r.QsList() != nil && r.QsCount() != nil:
 
-	case CountOnly:
+		return qs.GetManyTo(ctx, r.QsList(), Options(opts...), Count(r.QsCount(), WithModel(qs.model)))
+
+	case r.QsList() != nil:
+		return qs.GetManyTo(ctx, r.QsList(), WithModel(qs.model), Options(opts...))
+
+	case r.QsCount() != nil:
 		total, err := qs.Count(ctx, Options(opts...), WithoutLimitAndOffset())
 		if err != nil {
 			return err
@@ -219,11 +236,6 @@ func (qs *queries[M, Q]) GetManyWithCount(ctx context.Context, r ManyWithCountRe
 		*r.QsCount() = total
 		return nil
 
-	case ListOnly:
-		return qs.GetManyTo(ctx, r.QsList(), WithModel(qs.model), Options(opts...))
-
-	case ListAndCount:
-		return qs.GetManyTo(ctx, r.QsList(), Options(opts...), Count(r.QsCount(), WithModel(qs.model)))
 	}
 
 	return errors.New("not support operation, one of resp or count must not nil")
