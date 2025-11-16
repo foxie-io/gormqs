@@ -36,7 +36,8 @@ func NewUserQueries(db *gorm.DB) *UserQueries {
 
 func (qs *UserQueries) LockForUpdate(ctx context.Context, userId uint, updateUser func(u models.User) models.User, updateColumns ...qsopt.UserColumn) (returnUser *models.User, returnErr error) {
 	returnErr = qs.DBInstance(ctx).Transaction(func(tx *gorm.DB) error {
-		ctx := gormqs.ContextWithValue(tx.Statement.Context, tx)
+		ctx := gormqs.WrapContext(tx)
+
 		user, err := qs.GetOne(ctx, gormqs.LockForUpdate(), qsopt.USER.WhereID(userId))
 		if err != nil {
 			return err

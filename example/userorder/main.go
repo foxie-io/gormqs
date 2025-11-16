@@ -89,7 +89,8 @@ func createUserOrder(ctx context.Context, userId uint, orderItems []*models.Orde
 
 	// tx2
 	err = getDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		ctx := gormqs.ContextWithValue(tx.Statement.Context, tx)
+		// wrap tx into ctx, so queries can use it as tx instance
+		ctx := gormqs.WrapContext(tx)
 
 		// create an order
 		if err := order_qs.CreateOne(ctx, order); err != nil {
@@ -106,6 +107,7 @@ func createUserOrder(ctx context.Context, userId uint, orderItems []*models.Orde
 		}
 
 		// commit blocked balance = success
+		// will use tx2 instance because of tx2Ctx
 		_, err = user_qs.CommitBlockedBalance(ctx, user.ID, order.PayAmount)
 		if err != nil {
 			return err
