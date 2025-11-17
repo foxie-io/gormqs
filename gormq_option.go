@@ -12,6 +12,12 @@ func WhereID(id any) Option {
 	}
 }
 
+func Where(query interface{}, args ...interface{}) Option {
+	return func(q *gorm.DB) *gorm.DB {
+		return q.Where(query, args...)
+	}
+}
+
 func Select(query interface{}, args ...interface{}) Option {
 	return func(q *gorm.DB) *gorm.DB {
 		return q.Select(query, args...)

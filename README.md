@@ -58,13 +58,11 @@ func (User) TableName() string {
 ```go
 // queries/user_query.go
 
-type (
-	UserQueries struct {
-		gormqs.Queries[models.User, *UserQueries]
-		db    *gorm.DB
-		model models.User
-	}
-)
+type UserQueries struct {
+	gormqs.Queries[models.User, *UserQueries]
+	db    *gorm.DB
+	model models.User
+}
 
 // provider db instance for gormqs.Queries to use
 func (qr *UserQueries) DBInstance(ctx context.Context) *gorm.DB {
@@ -87,53 +85,84 @@ func (qr *UserQueries) UpdateUserByUsername(ctx context.Context, username string
 
 ```go
 // queries/options/user_option.go
-
 type UserColumn string
 
-const (
-	UserID        UserColumn = "id"
-	UserCreatedAt UserColumn = "created_at"
-	UserUpdatedAt UserColumn = "updated_at"
-	UserUsername  UserColumn = "username"
-	UserBalance   UserColumn = "balance"
-)
+type UserSchema struct {
+	ID             UserColumn
+	CreatedAt      UserColumn
+	UpdatedAt      UserColumn
+	Username       UserColumn
+	Balance        UserColumn
+	BlockedBalance UserColumn
+}
 
+var USER = UserSchema{
+	ID:             "id",
+	CreatedAt:      "created_at",
+	UpdatedAt:      "updated_at",
+	Username:       "username",
+	Balance:        "balance",
+	BlockedBalance: "blocked_balance",
+}
 
-func UserWhere(col UserColumn, operation, value any) gormqs.Option {
+func (s UserSchema) Where(col UserColumn, operation, value any) gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		query := fmt.Sprintf("%s %s ?", gormqs.WithTable(string(col), db), operation)
 		return db.Where(query, value)
 	}
 }
 
-func UserSelect(cols ...UserColumn) gormqs.Option {
+func (s UserSchema) WhereID(id uint) gormqs.Option {
+	return s.Where(s.ID, "=", id)
+}
+
+func (s UserSchema) SelectAll() gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
-		for _, col := range cols {
-			col = gormqs.WithTable(string(col), db)
-			db.Select(col)
-		}
-		return db
+		return db.Select("*")
 	}
 }
 
+func (s UserSchema) Select(cols ...UserColumn) gormqs.Option {
+	return func(db *gorm.DB) *gorm.DB {
+		columns := make([]string, len(cols))
+		for i, col := range cols {
+			columns[i] = gormqs.WithTable(string(col), db)
+		}
+		return db.Select(columns)
+	}
+}
+
+
 ```
 
-### Usage with or without transaction
+### Usage with transaction
 
 ```go
 user_qs := queries.NewUserQueries(db)
-user1, _ := user_qs.GetOne(ctx,  qsopt.WhereID(user1.ID))
+user1, _ := user_qs.GetOne(ctx,  qsopt.Where(qsopt.USER.Username,"=","user1"))
 
 db.Transaction(func(tx *gorm.DB) error {
-	ctx := gormqs.ContextWithValue(tx.Statement.Context, tx)
+	ctx := gormqs.WrapContext(tx)
 
-	user, err := user_qs.GetOne(ctx, qsopt.LockForUpdate(), qsopt.UserWhere(qsopt.UserID,"=",user1.ID)
+	user, err := user_qs.GetOne(ctx, gormqs.LockForUpdate(), qsopt.USER.WhereID(user1.ID))
 	if err != nil {
 		return err
 	}
 
 	user.Balance += 100
-	if _, err := user_qs.Updates(ctx, user, qsopt.UserSelect(qsopt.UserBalance)); err != nil {
+	// update only balance
+	if _, err := user_qs.Updates(ctx, user, qsopt.USER.Select(qsopt.USER.Balance)); err != nil {
+		return err
+	}
+
+    // update all columns on user
+	if _, err := user_qs.Updates(ctx, user, qsopt.USER.SelectAll); err != nil {
+		return err
+	}
+
+	// seperate result and value
+	var result models.User
+	if _, err := user_qs.Updates(ctx, user, qsopt.USER.SelectAll,gormq.WithModel(&result)); err != nil {
 		return err
 	}
 

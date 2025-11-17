@@ -34,17 +34,16 @@ func (s UserSchema) Where(col UserColumn, operation, value any) gormqs.Option {
 	}
 }
 
-func (s UserSchema) Select(cols ...UserColumn) gormqs.Option {
-	if len(cols) == 0 {
-		return s.Select("*")
-	}
+func (s UserSchema) SelectAll(db *gorm.DB) *gorm.DB {
+	return db.Select("*")
+}
 
+func (s UserSchema) Select(cols ...UserColumn) gormqs.Option {
 	return func(db *gorm.DB) *gorm.DB {
 		columns := make([]string, len(cols))
 		for i, col := range cols {
 			columns[i] = gormqs.WithTable(string(col), db)
 		}
-
 		return db.Select(columns)
 	}
 }
