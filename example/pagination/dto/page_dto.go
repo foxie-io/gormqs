@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	_ gormqs.ManyWithCountResulter = (*PageParam[any])(nil)
+	_ gormqs.ListOrCountResulter = (*PageParam[any])(nil)
 )
 
 type PageResult[Slice any] struct {

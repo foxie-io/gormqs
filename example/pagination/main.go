@@ -76,18 +76,32 @@ func main() {
 
 		// pageParam implement gormqs.ManyWithCountResulter
 		// for pagination, sometimes we don't need to count, becuase count cost alot of performance
-		if err := user_qs.GetManyWithCount(ctx, pageParam, pageParam.DBOption()); err != nil {
+		if err := user_qs.GetListTo(ctx, pageParam, pageParam.DBOption()); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		result := pageParam.Result()
-		if result.Data != nil {
-			hasNext := pageParam.HasNext(len(*result.Data))
-			result.HasNext = &hasNext
+		customResulter := pageParam.Result()
+		if customResulter.Data != nil {
+			hasNext := pageParam.HasNext(len(*customResulter.Data))
+			customResulter.HasNext = &hasNext
 		}
 
-		responseJson(w, result)
+		selects := r.URL.Query().Get("select")
+		if selects == "" {
+			selects = "count,list"
+		}
+
+		listResuler := gormqs.NewListResulter[dto.BaseUser](selects)
+		if err := user_qs.GetListTo(ctx, listResuler, gormqs.LimitAndOffset(3, 0)); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		responseJson(w, map[string]any{
+			"listResuler":    listResuler,
+			"customResulter": customResulter,
+		})
 	})
 
 	mux.HandleFunc("GET /users", func(w http.ResponseWriter, r *http.Request) {

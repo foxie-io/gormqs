@@ -12,7 +12,7 @@ require (
 require github.com/mattn/go-sqlite3 v1.14.32 // indirect
 
 require (
-	github.com/foxie-io/gormqs v0.1.9
+	github.com/foxie-io/gormqs v0.2.2
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	golang.org/x/text v0.31.0 // indirect
