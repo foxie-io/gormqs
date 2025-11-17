@@ -46,7 +46,7 @@ func (qs *UserQueries) LockForUpdate(ctx context.Context, userId uint, updateUse
 		newValue := updateUser(*user)
 		newValue.ID = user.ID
 
-		_, err = qs.Updates(ctx, &newValue, qopt.USER.Select(updateColumns...))
+		_, err = qs.Update(ctx, &newValue, qopt.USER.Select(updateColumns...))
 		returnUser = &newValue
 		return err
 	})

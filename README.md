@@ -24,24 +24,18 @@ Simple Gorm Queries Wrapper
 
 ```go
 type Queries[M Model, Q any] interface {
+	Querier() Q
 	CreateOne(ctx context.Context, record *M) error
 	CreateMany(ctx context.Context, record *[]*M) error
-
 	GetOne(ctx context.Context, opts ...Option) (result *M, err error)
 	GetMany(ctx context.Context, opts ...Option) (result []*M, err error)
-
-	// update one or many is base on at least one opt
-
-	Updates(ctx context.Context, record *M, opt Option, opts ...Option) (affectedRow int64, err error)
+	Update(ctx context.Context, record *M, opt Option, opts ...Option) (affectedRow int64, err error)
+	UpdateWithExpr(ctx context.Context, values map[string]clause.Expr, opt Option, opts ...Option) (affectedRow int64, err error)
 	Count(ctx context.Context, opt Option, opts ...Option) (count int64, err error)
 	Delete(ctx context.Context, opt Option, opts ...Option) (affectedRow int64, err error)
-
-	// scan pattern for custom type, and dynamic select without mapping to struct again
 	GetOneTo(ctx context.Context, result Model, opts ...Option) error
 	GetManyTo(ctx context.Context, resultList any, opts ...Option) error
-
-	// list with count | list ony | count ony with same option meaning same query filter
-	GetManyWithCount(ctx context.Context, r ManyWithCountResulter, options ...Option) error
+	GetListTo(ctx context.Context, listResulter ListOrCountResulter, options ...Option) error
 }
 ```
 
