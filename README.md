@@ -1,14 +1,26 @@
-# gormqs
+# Gorm Queries
 
 Simple Gorm Queries Wrapper
 
 ## Features
 
-- simple interface for gorm queries with option
-- go context base
-- extendable option (strict type or dynamic is up to you)
+- basic queries without bloated your
+- extendable queries and option (customize your need in queries or option)
+
+## Question
+
+- why not just use [Gorm](https://github.com/go-gorm/gorm)?
+  - Gorm is a good ORM, but it lacks type safety
+- why not [Ent](https://github.com/ent/ent)?
+  - Ent is type safe, but it bloats your code
+- why [GormQs](https://github.com/foxie-io/gormqs)?
+  - It is in the middle between Gorm and Ent
+  - Reduce usage of go type interface{} | any of `Gorm`
 
 ## Queries
+
+- basic queries interface so, it won't have to much black magic
+- support with options (use to build query like `where id =`, `select col,col2`, `preload`, `join`)
 
 ```go
 type Queries[M Model, Q any] interface {
@@ -24,8 +36,7 @@ type Queries[M Model, Q any] interface {
 	Count(ctx context.Context, opt Option, opts ...Option) (count int64, err error)
 	Delete(ctx context.Context, opt Option, opts ...Option) (affectedRow int64, err error)
 
-	// scan pattern for custom type without mapping to struct again
-
+	// scan pattern for custom type, and dynamic select without mapping to struct again
 	GetOneTo(ctx context.Context, result Model, opts ...Option) error
 	GetManyTo(ctx context.Context, resultList any, opts ...Option) error
 
@@ -34,7 +45,7 @@ type Queries[M Model, Q any] interface {
 }
 ```
 
-### Declare Model
+### Model
 
 ```go
 // models/user.go
@@ -51,14 +62,14 @@ func (User) TableName() string {
 }
 ```
 
-### UserQueries Implementation
+### Extended `queries`
 
 ```go
 // queries/user.go
 package queries
 
 type UserQueries struct {
-	gormqs.Queries[models.User, *UserQueries]
+	gormqs.Queries[models.User, *UserQueries] // basic queries, GetOne,GetMany, etc...
 	db    *gorm.DB
 	model models.User
 }
@@ -80,7 +91,9 @@ func (qr *UserQueries) UpdateUserByUsername(ctx context.Context, username string
 }
 ```
 
-### Declare your own option for type safe
+### Implement `queries option` (type safe and reusable)
+
+- recommend to write your own `codegen` for minimum options to avoid code bloated
 
 ```go
 // queries/options/user.go
@@ -167,8 +180,7 @@ db.Transaction(func(tx *gorm.DB) error {
 		return err
 	}
 
-	// use gorm with options
-	user.Balance
+	// use gorm directly with option
 	if err := tx.Scopes(gormq.WithModel(&user), qopt.USER.SelectAll).Updates(user).Err;err != nil {
 		return err
 	}
