@@ -34,11 +34,9 @@ type Queries[M Model, Q any] interface {
 }
 ```
 
-## Usage
-
 ### Declare Model
 
-````go
+```go
 // models/user_model.go
 
 type User struct {
@@ -50,8 +48,7 @@ type User struct {
 func (User) TableName() string {
 	return "users"
 }
-
-```go
+```
 
 ### UserQueries Implementation
 
@@ -79,7 +76,7 @@ func NewUserQueries(db *gorm.DB) *UserQueries {
 func (qr *UserQueries) UpdateUserByUsername(ctx context.Context, username string, newVal any) error {
 	// implement your own query
 }
-````
+```
 
 ### Declare your own option for type safe
 
