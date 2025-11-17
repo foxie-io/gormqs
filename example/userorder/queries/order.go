@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"example/userorder/models"
-	qsopt "example/userorder/queries/options"
+	qopt "example/userorder/queries/options"
 
 	"github.com/foxie-io/gormqs"
 	"gorm.io/gorm"
@@ -45,8 +45,8 @@ alternative:
 */
 func (qs *OrderQueries) GetOneWithDetails(ctx context.Context, orderID uint) (*models.Order, error) {
 	return qs.GetOne(ctx,
-		qsopt.ORDER.Where(qsopt.ORDER.ID, "=", orderID),
-		qsopt.ORDER.PreloadOrderItems(),
-		qsopt.ORDER.PreloadUser(),
+		qopt.ORDER.Where(qopt.ORDER.ID, "=", orderID),
+		qopt.ORDER.PreloadOrderItems(),
+		qopt.ORDER.PreloadUser(),
 	)
 }

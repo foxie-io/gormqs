@@ -1,4 +1,4 @@
-package qsopt
+package qopt
 
 import (
 	"fmt"

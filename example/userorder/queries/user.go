@@ -3,7 +3,7 @@ package queries
 import (
 	"context"
 	"example/userorder/models"
-	qsopt "example/userorder/queries/options"
+	qopt "example/userorder/queries/options"
 
 	"github.com/foxie-io/gormqs"
 	"gorm.io/gorm"
@@ -34,11 +34,11 @@ func NewUserQueries(db *gorm.DB) *UserQueries {
 	return qs
 }
 
-func (qs *UserQueries) LockForUpdate(ctx context.Context, userId uint, updateUser func(u models.User) models.User, updateColumns ...qsopt.UserColumn) (returnUser *models.User, returnErr error) {
+func (qs *UserQueries) LockForUpdate(ctx context.Context, userId uint, updateUser func(u models.User) models.User, updateColumns ...qopt.UserColumn) (returnUser *models.User, returnErr error) {
 	returnErr = qs.DBInstance(ctx).Transaction(func(tx *gorm.DB) error {
 		ctx := gormqs.WrapContext(tx)
 
-		user, err := qs.GetOne(ctx, gormqs.LockForUpdate(), qsopt.USER.WhereID(userId))
+		user, err := qs.GetOne(ctx, gormqs.LockForUpdate(), qopt.USER.WhereID(userId))
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (qs *UserQueries) LockForUpdate(ctx context.Context, userId uint, updateUse
 		newValue := updateUser(*user)
 		newValue.ID = user.ID
 
-		_, err = qs.Updates(ctx, &newValue, qsopt.USER.Select(updateColumns...))
+		_, err = qs.Updates(ctx, &newValue, qopt.USER.Select(updateColumns...))
 		returnUser = &newValue
 		return err
 	})
@@ -61,8 +61,8 @@ func (qs *UserQueries) BlockBalance(ctx context.Context, userId uint, blockingAm
 			BlockedBalance: u.BlockedBalance + blockingAmount,
 		}
 	},
-		qsopt.USER.Balance,
-		qsopt.USER.BlockedBalance,
+		qopt.USER.Balance,
+		qopt.USER.BlockedBalance,
 	)
 }
 
@@ -73,8 +73,8 @@ func (qs *UserQueries) UnblockBalance(ctx context.Context, userId uint, blocking
 			BlockedBalance: u.BlockedBalance - blockingAmount,
 		}
 	},
-		qsopt.USER.Balance,
-		qsopt.USER.BlockedBalance,
+		qopt.USER.Balance,
+		qopt.USER.BlockedBalance,
 	)
 }
 
@@ -85,6 +85,6 @@ func (qs *UserQueries) CommitBlockedBalance(ctx context.Context, userId uint, bl
 			BlockedBalance: u.BlockedBalance - blockingAmount,
 		}
 	},
-		qsopt.USER.BlockedBalance,
+		qopt.USER.BlockedBalance,
 	)
 }

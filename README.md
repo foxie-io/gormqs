@@ -37,7 +37,8 @@ type Queries[M Model, Q any] interface {
 ### Declare Model
 
 ```go
-// models/user_model.go
+// models/user.go
+package models
 
 type User struct {
 	...
@@ -53,7 +54,8 @@ func (User) TableName() string {
 ### UserQueries Implementation
 
 ```go
-// queries/user_query.go
+// queries/user.go
+package queries
 
 type UserQueries struct {
 	gormqs.Queries[models.User, *UserQueries]
@@ -81,7 +83,9 @@ func (qr *UserQueries) UpdateUserByUsername(ctx context.Context, username string
 ### Declare your own option for type safe
 
 ```go
-// queries/options/user_option.go
+// queries/options/user.go
+package qopt
+
 type UserColumn string
 
 type UserSchema struct {
@@ -136,30 +140,36 @@ func (s UserSchema) Select(cols ...UserColumn) gormqs.Option {
 
 ```go
 user_qs := queries.NewUserQueries(db)
-user1, _ := user_qs.GetOne(ctx,  qsopt.Where(qsopt.USER.Username,"=","user1"))
+user1, _ := user_qs.GetOne(ctx,  qopt.Where(qopt.USER.Username,"=","user1"))
 
 db.Transaction(func(tx *gorm.DB) error {
 	ctx := gormqs.WrapContext(tx)
 
-	user, err := user_qs.GetOne(ctx, gormqs.LockForUpdate(), qsopt.USER.WhereID(user1.ID))
+	user, err := user_qs.GetOne(ctx, gormqs.LockForUpdate(), qopt.USER.WhereID(user1.ID))
 	if err != nil {
 		return err
 	}
 
 	user.Balance += 100
 	// update only balance
-	if _, err := user_qs.Updates(ctx, user, qsopt.USER.Select(qsopt.USER.Balance)); err != nil {
+	if _, err := user_qs.Updates(ctx, user, qopt.USER.Select(qopt.USER.Balance)); err != nil {
 		return err
 	}
 
     // update all columns on user
-	if _, err := user_qs.Updates(ctx, user, qsopt.USER.SelectAll); err != nil {
+	if _, err := user_qs.Updates(ctx, user, qopt.USER.SelectAll); err != nil {
 		return err
 	}
 
 	// seperate result and value
 	var result models.User
-	if _, err := user_qs.Updates(ctx, user, qsopt.USER.SelectAll,gormq.WithModel(&result)); err != nil {
+	if _, err := user_qs.Updates(ctx, user, qopt.USER.SelectAll, gormq.WithModel(&result)); err != nil {
+		return err
+	}
+
+	// use gorm with options
+	user.Balance
+	if err := tx.Scopes(gormq.WithModel(&user), qopt.USER.SelectAll).Updates(user).Err;err != nil {
 		return err
 	}
 
