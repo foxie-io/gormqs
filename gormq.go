@@ -84,6 +84,11 @@ type ListResulter[T Model] struct {
 	Count   *int64 `json:"count,omitempty"`
 }
 
+/*
+ListResulter
+
+selects := "list,count" | "list" | "count"
+*/
 func NewListResulter[T Model](selects string) *ListResulter[T] {
 	return &ListResulter[T]{
 		selects: selects,
@@ -310,7 +315,7 @@ func (qs *queries[M, Q]) GetOneTo(ctx context.Context, r Model, opts ...Option) 
 }
 
 func (qs *queries[M, Q]) GetManyTo(ctx context.Context, rList any, opts ...Option) error {
-	return qs.dbInstance(ctx, opts...).First(rList).Error
+	return qs.dbInstance(ctx, opts...).Find(rList).Error
 }
 
 func (qs *queries[M, Q]) GetListTo(ctx context.Context, r ListOrCountResulter, opts ...Option) error {
