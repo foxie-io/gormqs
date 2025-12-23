@@ -2,12 +2,16 @@
 
 `gormqs` is a lightweight and extendable wrapper for Gorm, designed to simplify query building while maintaining type safety. It strikes a balance between the flexibility of Gorm and the strict type safety of libraries like Ent.
 
+---
+
 ## Features
 
 - **Simplified Queries**: Perform basic queries without unnecessary complexity.
 - **Extendable Options**: Customize queries with reusable and type-safe options.
 - **Type Safety**: Minimize the use of `interface{}` or `any` for better code reliability.
 - **Transaction Support**: Easily integrate with Gorm transactions.
+
+---
 
 ## Why Use `gormqs`?
 
@@ -27,6 +31,8 @@ Ent provides type safety but can introduce significant boilerplate code.
 - Reduces boilerplate code.
 - Enhances type safety.
 
+---
+
 ## Getting Started
 
 ### Installation
@@ -42,6 +48,8 @@ Ensure you have Gorm installed as well:
 ```bash
 go get gorm.io/gorm
 ```
+
+---
 
 ### Basic Usage
 
@@ -107,6 +115,8 @@ if err != nil {
 fmt.Println("Fetched User:", user)
 ```
 
+---
+
 ## Advanced Features
 
 ### Custom Query Options
@@ -161,9 +171,13 @@ db.Transaction(func(tx *gorm.DB) error {
 })
 ```
 
+---
+
 ## Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests.
+
+---
 
 ## License
 
