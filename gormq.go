@@ -305,7 +305,8 @@ func (qs *queries[M, Q]) Count(ctx context.Context, opt Option, opts ...Option) 
 }
 
 func (qs *queries[M, Q]) Delete(ctx context.Context, opt Option, opts ...Option) (affectedRow int64, err error) {
-	cmd := qs.dbInstance(ctx, opt, Options(opts...)).Delete(qs.model)
+	model := qs.model
+	cmd := qs.dbInstance(ctx, opt, Options(opts...)).Delete(&model)
 	affectedRow, err = cmd.RowsAffected, cmd.Error
 	return
 }
